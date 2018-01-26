@@ -40,6 +40,7 @@ resource "aws_security_group_rule" "ingress-sgid" {
 
 ## Security Group Egress with CIDR ##
 resource "aws_security_group_rule" "egress" {
+  count                    = "${length(var.egress_cidr_from_ports)}"
   type                     = "egress"
   from_port                = "${element(var.egress_cidr_from_ports, count.index)}"
   to_port                  = "${element(var.egress_cidr_to_ports, count.index)}"
