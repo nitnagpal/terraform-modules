@@ -32,11 +32,11 @@ variable "map_public_ip_on_launch" {
 }
 
 variable "aws_availability_zones" {
-     default = {
-       ap-south-1 = ["ap-south-1a", "ap-south-1b"]
-       ap-southeast-1 = ["ap-southeast-1a", "ap-southeast-1b"]
-     }
-   }
+  default = {
+    ap-south-1 = ["ap-south-1a", "ap-south-1b"]
+    ap-southeast-1 = ["ap-southeast-1a", "ap-southeast-1b"]
+  }
+}
 
 variable "enable_dns_hostnames" {
   description = "Should be true to enable DNS hostnames in the VPC"
