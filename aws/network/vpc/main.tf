@@ -94,7 +94,7 @@ resource "aws_default_network_acl" "this" {
 
 ## Internet Gateway ##
 resource "aws_internet_gateway" "this" {
-  count  = "${var.enable_internet_gateway ? 1 : 0}"
+  count = "${length(var.public_subnets) > 0 ? 1 : 0}"
   vpc_id = "${aws_vpc.this.id}"
   tags {
     Name        = "${var.env}-${var.vpc_name}-vpc-igw"
@@ -105,7 +105,7 @@ resource "aws_internet_gateway" "this" {
 
 ## Public Route Table ##
 resource "aws_route_table" "public" {
-  count  = "${var.enable_internet_gateway ? 1 : 0}"
+  count = "${length(var.public_subnets) > 0 ? 1 : 0}"
   vpc_id = "${aws_vpc.this.id}"
   tags {
     Name        = "${var.env}-${var.vpc_name}-vpc-public-route-table"
@@ -116,8 +116,98 @@ resource "aws_route_table" "public" {
 
 ## Public Route ##
  resource "aws_route" "public" {
-   count  = "${var.enable_internet_gateway ? 1 : 0}"
-   route_table_id            = "${aws_route_table.public.id}"
-   destination_cidr_block    = "0.0.0.0/0"
-   gateway_id                = "${aws_internet_gateway.this.id}"
+   count                  = "${length(var.public_subnets) > 0 ? 1 : 0}"
+   route_table_id         = "${aws_route_table.public.id}"
+   destination_cidr_block = "0.0.0.0/0"
+   gateway_id             = "${aws_internet_gateway.this.id}"
  }
+
+ ## Public subnets ##
+ resource "aws_subnet" "public" {
+   count                   = "${length(var.public_subnets)}"
+   vpc_id                  = "${aws_vpc.this.id}"
+   cidr_block              = "${var.public_subnets[count.index]}"
+   availability_zone       = "${element(var.aws_availability_zones[var.aws_region], count.index % length(var.aws_availability_zones[var.aws_region]))}"
+   map_public_ip_on_launch = "${var.map_public_ip_on_launch}"
+   tags {
+     Name        = "${var.env}-${var.vpc_name}-vpc-public-subnet-${count.index+1}-${element(split("-",element(var.aws_availability_zones[var.aws_region],count.index)), 2)}"
+     Environment = "${var.env}"
+     Terraform   = true
+   }
+ }
+
+## Public Route Table Association ##
+ resource "aws_route_table_association" "public" {
+   count          = "${length(var.public_subnets)}"
+   subnet_id      = "${element(aws_subnet.public.*.id, count.index)}"
+   route_table_id = "${aws_route_table.public.id}"
+ }
+
+ ## Private subnets ##
+ resource "aws_subnet" "private" {
+   count             = "${length(var.private_subnets)}"
+   vpc_id            = "${aws_vpc.this.id}"
+   cidr_block        = "${var.private_subnets[count.index]}"
+   availability_zone = "${element(var.aws_availability_zones[var.aws_region], count.index % length(var.aws_availability_zones[var.aws_region]))}"
+   tags {
+     Name        = "${var.env}-${var.vpc_name}-vpc-private-subnet-${count.index+1}-${element(split("-",element(var.aws_availability_zones[var.aws_region],count.index)), 2)}"
+     Environment = "${var.env}"
+     Terraform   = true
+   }
+ }
+
+## NAT Gateway EIPs ##
+ resource "aws_eip" "nat" {
+   count = "${var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.aws_availability_zones[var.aws_region])) : 0}"
+   vpc = true
+   tags {
+     Name        = "${var.env}-${var.vpc_name}-vpc-nat-gateway-eip-${count.index+1}"
+     Environment = "${var.env}"
+     Terraform   = true
+   }
+ }
+
+## NAT Gateway ##
+ resource "aws_nat_gateway" "this" {
+   count = "${var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.aws_availability_zones[var.aws_region])) : 0}"
+   allocation_id = "${element(aws_eip.nat.*.id, count.index)}"
+   subnet_id     = "${element(aws_subnet.public.*.id, (var.single_nat_gateway ? 0 : count.index))}"
+   tags {
+     Name        = "${var.env}-${var.vpc_name}-vpc-nat-gateway-${count.index+1}"
+     Environment = "${var.env}"
+     Terraform = true
+   }
+   lifecycle {
+     create_before_destroy = true
+   }
+   depends_on = ["aws_internet_gateway.this"]
+ }
+
+## Private Route Table ##
+ resource "aws_route_table" "private" {
+   count  = "${length(var.private_subnets) > 0 ? length(var.aws_availability_zones[var.aws_region]) : 0}"
+   vpc_id = "${aws_vpc.this.id}"
+   tags      {
+     Name        = "${var.env}-${var.vpc_name}-vpc-private-route-table-${element(split("-",element(var.aws_availability_zones[var.aws_region],count.index)), 2)}"
+     Environment = "${var.env}"
+     Terraform   = true
+   }
+   lifecycle {
+     create_before_destroy = true
+   }
+ }
+
+## Private Route ##
+ resource "aws_route" "private" {
+   count  = "${(var.enable_nat_gateway && length(var.private_subnets) > 0) ? length(var.aws_availability_zones[var.aws_region]) : 0}"
+   route_table_id          = "${element(aws_route_table.private.*.id, count.index)}"
+   destination_cidr_block  = "0.0.0.0/0"
+   nat_gateway_id          = "${element(aws_nat_gateway.this.*.id, count.index)}"
+ }
+
+## Private Route Table Association ##
+ resource "aws_route_table_association" "private" {
+  count          = "${length(var.private_subnets)}"
+  subnet_id      = "${element(aws_subnet.private.*.id, count.index)}"
+  route_table_id = "${element(aws_route_table.private.*.id, count.index)}"
+}
