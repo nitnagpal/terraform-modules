@@ -1,4 +1,4 @@
-## Sample Config
+## Usage
 ```
 module "myvpc" {
   source                  = "/path/to/terraform-modules/aws/network/vpc"
@@ -32,7 +32,7 @@ output "vpc-private-route-table-ids"   { value = "${module.myvpc.private_route_t
 output "vpc-nat-public-ips"   { value = "${module.myvpc.nat_public_ips}" }
 output "vpc-natgw-ids"   { value = "${module.myvpc.natgw_ids}" }
 ```
-## Resulting Output
+## Output
 
 ```
 Outputs:

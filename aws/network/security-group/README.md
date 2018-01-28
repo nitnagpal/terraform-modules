@@ -1,3 +1,4 @@
+## Usage
 ```
 module "sg-cidr" {
   source                    = "path/to/terraform-modules/aws/network/security-group"
@@ -17,6 +18,7 @@ module "sg-cidr" {
   source_security_group_id  = [ ]
 }
 ```
+## Output
 
 | Type   |Protocol   |Port Range   |Source      |Description   |
 |:------:|:---------:|:-----------:|:----------:|:------------:|
@@ -24,6 +26,7 @@ module "sg-cidr" {
 | HTTP  | TCP        | 80          | 10.0.0.0/8 | Local HTTP   |
 | HTTPS | TCP        |443          | 10.0.0.0/8 | Local HTTPS  |
 
+## Usage
 ```
 module "sg-sgid" {
   source                    = "../../../../../terraform-modules/aws/network/security-group"
@@ -43,6 +46,7 @@ module "sg-sgid" {
   source_security_group_id  = ["${module.sg-cidr.security_group_id}"]
 }
 ```
+## Output
 
 | Type            |Protocol   |Port Range   |Source                                |Description   |
 |:---------------:|:---------:|:-----------:|:------------------------------------:|:------------:|
